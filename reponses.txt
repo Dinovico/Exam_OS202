@@ -1,0 +1,93 @@
+
+
+INTRODUCTION
+
+
+La machine utilisée dispose de 4 coeurs physiques et 8 coeurs logiques.
+Les caches L2 et L3 sont de tailles respectives 1 et 6 MiB.
+
+
+
+AUTOMATE CELLULAIRE
+
+Version séquentielle :
+
+Temps calcul des generations de cellules : 0.97596
+Temps d'affichage des resultats : 9.89638
+
+
+1) A priori, il n'y a aucune raison que les temps de calcul soient les mêmes pour chacune des règles.
+Par conséquent, il peut paraître optimal d'utiliser une stratégie de parallélisation dynamique pour répartir
+les calculs au fur et à mesure de l'exécution et mieux équilibrer la charge entre les processus.
+Néanmoins, en mesurant et affichant le temps de calcul de chaque règle dans la version séquentielle, on remarque
+que dans les faits tous les calculs se font en un temps absolument similaire.
+
+On choisit donc une stratégie de parallélisation statique pour s'épargner des efforts peu rentables.
+
+Evidemment, il est ici possible de tester les temps de calcul de chaque règle car on dispose d'un nombre réduit
+d'entre elles. Néanmoins, on pourrait envisager dans le cas où l'on disposerait de beaucoup plus de calculs à
+effectuer de sélectionner au hasard un échantillon de calculs et d'en déduire statistiquement si les calculs 
+prennent tous le même temps, afin de choisir la stratégie la mieux adaptée.
+
+
+
+Ici, la stratégie est simple: chaque processus ne boucle que sur les règles dont le numéro est égal au rang du
+processus modulo le nombre de processus utilisés. Cela garantit qu'aucune règle n'est calculée par deux processus,
+assure que toutes les règles sont calculées et ne nécessite aucune communication entre les processus.
+Le code est très similaire à la version séquentielle, il n'y a besoin ni d'émettre ni de recevoir des données car
+quasiment tout est généré dans la boucle de calcul et le rendu consiste en la création d'un nouveau fichier, création
+gérée directement par le processus en charge du calcul.
+La seule utilisation de la bibliothèque MPI est donc ici de permettre l'exécution simultanée sur plusieurs processus,
+en récupérant le nombre total de processus et le rang de chacun.
+
+
+
+2) On a les résultats suivants :
+
+
+mpiexec -n 1 python3 auto_cell_mpi.py
+Execution time: 9.907062292098999 seconds
+
+
+mpiexec -n 2 python3 auto_cell_mpi.py
+Execution time: 6.392628908157349 seconds
+--> speedup de 1.550
+
+
+mpiexec -n 3 python3 auto_cell_mpi.py
+Execution time: 4.650449752807617 seconds
+--> speedup de 2.131
+
+
+mpiexec -n 4 python3 auto_cell_mpi.py
+Execution time: 3.6630606651306152 seconds
+--> speedup de 2.704
+
+
+
+
+
+ENVELOPPE CONVEXE
+
+
+Le code rendu compile et s'exécute avec un speedup cohérent, et l'affichage graphique de l'enveloppe convexe est suffisamment proche
+de celui attendu (pour 55400 points) pour être indiscernable à l'oeil nu. Néanmoins la vérification échoue, il doit donc y avoir une
+petite erreur dans le programme mais je n'ai pas réussi à la trouver. 
+
+
+
+mpiexec -n 1 python3 env_convexe_mpi.py 
+Temps total : 0.6658422152201334
+
+
+mpiexec -n 2 python3 env_convexe_mpi.py 
+Temps total : 0.2720746199289958
+--> speedup de 2.449
+
+mpiexec -n 4 python3 env_convexe_mpi.py 
+Temps total : 0.19894941647847494
+--> speedup de 3.347
+
+
+Un tel speedup est possible car on n'effectue pas le même calcul quand le nb de processus augmente, ie le calcul sur deux "demi-nuages" 
+est plus court que le calcul sur un nuage entier. Cela est lié à la complexité de l'algorithme de Graham.
